@@ -1,0 +1,69 @@
+<!doctype html>
+<html><head><meta charset="utf-8"><title>Blocks contact sheet</title>
+<style>
+  body { margin: 0; background: #111; color: #ddd; font: 13px/1.3 system-ui, sans-serif; }
+  .row { padding: 14px 14px 18px; border-bottom: 1px solid #333; }
+  .row h2 { margin: 0 0 8px; font-size: 15px; font-weight: 600; }
+  .panels { display: flex; gap: 10px; align-items: flex-start; }
+  figure { margin: 0; width: 300px; }
+  figure img, figure canvas { width: 300px; height: auto; display: block; background: #fff; }
+  figcaption { margin-top: 4px; color: #999; font-size: 12px; }
+  .old figcaption { color: #e5a; }
+</style></head>
+<body>
+<div id="out"></div>
+<script src="../engine.js"></script>
+<script>
+// window.JOBS = [{ name, src, old: dataURL|null, extra: [{src, caption}] }]
+async function run() {
+  const E = window.BlocksEngine, out = document.getElementById('out');
+  for (const job of window.JOBS) {
+    const img = await new Promise((res, rej) => { const i = new Image(); i.onload = () => res(i); i.onerror = rej; i.src = job.src; });
+    const k = Math.min(1, E.DEFAULTS.work / Math.max(img.naturalWidth, img.naturalHeight));
+    const w = Math.round(img.naturalWidth * k), h = Math.round(img.naturalHeight * k);
+    const c = document.createElement('canvas'); c.width = w; c.height = h;
+    const g = c.getContext('2d'); g.drawImage(img, 0, 0, w, h);
+    const px = g.getImageData(0, 0, w, h).data;
+    let subject = null;
+    if (job.mask) {
+      const mi = await new Promise(res => { const i = new Image(); i.onload = () => res(i); i.src = job.mask; });
+      const mc = document.createElement('canvas'); mc.width = w; mc.height = h;
+      const mg = mc.getContext('2d'); mg.drawImage(mi, 0, 0, w, h);
+      const md = mg.getImageData(0, 0, w, h).data; subject = new Uint8Array(w * h);
+      for (let i = 0; i < w * h; i++) subject[i] = md[i * 4];
+    }
+    const t0 = performance.now();
+    const an = E.analyze(px, w, h, { subject });
+    const t1 = performance.now();
+    const row = document.createElement('div'); row.className = 'row';
+    const panels = document.createElement('div'); panels.className = 'panels';
+    const add = (node, cap, cls) => { const f = document.createElement('figure'); if (cls) f.className = cls; f.appendChild(node); const fc = document.createElement('figcaption'); fc.textContent = cap; f.appendChild(fc); panels.appendChild(f); };
+    const im = new Image(); im.src = job.src; add(im, 'Photo');
+    // focus overlay
+    const fc = document.createElement('canvas'); fc.width = w; fc.height = h;
+    const fg = fc.getContext('2d'); fg.drawImage(img, 0, 0, w, h);
+    const fd = fg.getImageData(0, 0, w, h);
+    for (let i = 0; i < w * h; i++) if (!an.focus[i]) { fd.data[i * 4] *= 0.25; fd.data[i * 4 + 1] *= 0.25; fd.data[i * 4 + 2] *= 0.25; }
+    fg.putImageData(fd, 0, 0); add(fc, an.side ? 'Subject (cut-out model)' : 'Focus the engine guessed');
+    if (job.old) { const o = new Image(); o.src = job.old; add(o, 'Current app — 3 tones', 'old'); }
+    const S = 900 / Math.max(w, h);
+    const steps = [[2, 'coarse', '1 · 2 tones, big shapes'], [3, 'coarse', '2 · 3 tones, big shapes'], [3, 'detail', '3 · 3 tones + detail'], [5, 'fine', '4 · 5 tones + fine detail']];
+    let tSteps = 0;
+    for (const [t, lvl, cap] of steps) {
+      const s0 = performance.now();
+      const res = E.step(an, t, lvl);
+      tSteps += performance.now() - s0;
+      const cv = document.createElement('canvas'); cv.width = Math.round(w * S); cv.height = Math.round(h * S);
+      E.draw(cv.getContext('2d'), res, { scale: S, lineWidth: 6 });
+      add(cv, cap);
+    }
+    for (const x of job.extra || []) { const e = new Image(); e.src = x.src; add(e, x.caption, 'old'); }
+    const hd = document.createElement('h2');
+    hd.textContent = `${job.name}  ·  analyse ${Math.round(t1 - t0)} ms, 4 steps ${Math.round(tSteps)} ms, ${an.seg.R} patches`;
+    row.appendChild(hd); row.appendChild(panels); out.appendChild(row);
+  }
+  document.body.dataset.done = '1';
+}
+run().catch(e => { document.body.dataset.error = e.stack || String(e); });
+</script>
+</body></html>
