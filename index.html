@@ -9,11 +9,11 @@
   * { box-sizing: border-box; }
   html, body { margin:0; background:var(--bg); color:var(--ink);
     font:15px/1.4 -apple-system, BlinkMacSystemFont, "Inter", "Segoe UI", sans-serif; }
-  header { display:flex; align-items:baseline; gap:12px; padding:16px 16px 8px; }
+  header { display:flex; align-items:baseline; gap:12px; padding:16px 16px 8px; flex-wrap:wrap; }
   header h1 { margin:0; font-size:18px; letter-spacing:.04em; font-weight:600; }
   header span { color:var(--mute); font-size:13px; }
   main { display:grid; grid-template-columns:300px 1fr; gap:16px; padding:8px 16px 32px; max-width:1400px; margin:0 auto; }
-  @media (max-width:800px) { main { grid-template-columns:1fr; } }
+  @media (max-width:800px) { main { grid-template-columns:1fr; } aside { order:2; } }
   .panel { background:var(--panel); border:1px solid var(--line); border-radius:12px; padding:14px; }
   .panel + .panel { margin-top:12px; }
   .panel h2 { margin:0 0 10px; font-size:11px; letter-spacing:.12em; text-transform:uppercase; color:var(--mute); font-weight:600; }
@@ -21,7 +21,7 @@
   label.row .top { display:flex; justify-content:space-between; font-size:13px; }
   label.row .top b { font-weight:500; color:var(--mute); font-variant-numeric:tabular-nums; }
   input[type=range] { width:100%; accent-color:var(--accent); margin:6px 0 0; }
-  .hint { font-size:12px; color:var(--mute); margin-top:2px; }
+  .hint { font-size:12px; color:var(--mute); margin-top:4px; }
   button, .btn { appearance:none; background:#232327; color:var(--ink); border:1px solid var(--line);
     border-radius:8px; padding:9px 12px; font:inherit; cursor:pointer; }
   button:hover, .btn:hover { background:#2c2c31; }
@@ -30,23 +30,32 @@
   .btnrow > * { flex:1 1 auto; text-align:center; }
   input[type=file] { display:none; }
   select { width:100%; background:#232327; color:var(--ink); border:1px solid var(--line); border-radius:8px; padding:9px; font:inherit; }
+  .seg { display:flex; border:1px solid var(--line); border-radius:8px; overflow:hidden; margin-top:6px; }
+  .seg button { flex:1; border:0; border-radius:0; padding:8px 6px; font-size:13px; background:#1d1d21; }
+  .seg button + button { border-left:1px solid var(--line); }
+  .seg button.on { background:var(--ink); color:#000; font-weight:600; }
   .swatches { display:flex; gap:8px; margin-top:8px; }
   .swatches input[type=color] { width:100%; height:38px; padding:0; border:1px solid var(--line); border-radius:8px; background:none; cursor:pointer; }
   .check { display:flex; align-items:center; gap:8px; margin-top:12px; font-size:14px; }
   .check input { accent-color:var(--accent); width:18px; height:18px; }
+  .status { font-size:12px; color:var(--mute); margin-top:8px; min-height:1.2em; }
+  .status.busy::before { content:""; display:inline-block; width:8px; height:8px; border-radius:50%; background:var(--accent); margin-right:6px; animation:pulse 1s infinite; }
+  @keyframes pulse { 50% { opacity:.25; } }
   .tabs { display:flex; gap:6px; flex-wrap:wrap; margin-bottom:12px; }
-  .tabs button { padding:8px 14px; }
+  .tabs button { padding:8px 12px; text-align:left; line-height:1.15; }
+  .tabs button small { display:block; font-size:11px; color:var(--mute); }
   .tabs button.on { background:var(--ink); color:#000; border-color:var(--ink); font-weight:600; }
+  .tabs button.on small { color:#444; }
   .stage { min-height:320px; display:flex; align-items:center; justify-content:center; }
   .stage.empty { border:2px dashed var(--line); border-radius:12px; color:var(--mute); text-align:center; padding:40px 20px; cursor:pointer; }
   .stage.drag { border-color:var(--accent); color:var(--ink); }
   .single { flex-direction:column; }
   .single .wrap { position:relative; display:inline-block; max-width:100%; line-height:0; }
   .single canvas { max-width:100%; max-height:78vh; border-radius:8px; background:#fff; touch-action:none; }
-  .single .note { color:var(--mute); font-size:12px; margin-top:8px; }
+  .single .note { color:var(--mute); font-size:12px; margin-top:8px; text-align:center; }
   .band { position:absolute; border:2px solid var(--accent); background:rgba(229,72,77,.12); pointer-events:none; }
-  .grid { display:grid; grid-template-columns:repeat(auto-fill, minmax(260px, 1fr)); gap:12px; width:100%; align-items:start; }
-  .grid figure { margin:0; }
+  .grid { display:grid; grid-template-columns:repeat(auto-fill, minmax(240px, 1fr)); gap:12px; width:100%; align-items:start; }
+  .grid figure { margin:0; cursor:pointer; }
   .grid canvas { width:100%; height:auto; border-radius:8px; display:block; }
   .grid figcaption { font-size:12px; color:var(--mute); margin-top:4px; }
   #printArea { display:none; }
@@ -66,37 +75,40 @@
 </style>
 </head>
 <body>
-<header><h1>BLOCKS</h1><span>Turn a photo into 2 – 5 flat tones to draw from.</span></header>
+<header><h1>BLOCKS</h1><span>A photo, blocked in the way you'd draw it: big shapes first, then three values, then detail.</span></header>
 
 <main>
   <aside>
     <div class="panel">
-      <h2>Image</h2>
+      <h2>Photo</h2>
       <div class="btnrow">
         <label class="btn" for="file">Choose photo</label>
         <button id="sample" type="button">Sample</button>
       </div>
       <input id="file" type="file" accept="image/*">
-      <div class="hint">Or drop / paste one. Use the real photo, not a screenshot. On the Original tab you can drag a box to crop, so borders and text don't skew the tones.</div>
-      <button id="resetCrop" type="button" style="margin-top:8px;width:100%;display:none">Reset crop</button>
+      <div class="hint">Or drop / paste one. Nothing is uploaded — it all runs on this device.</div>
+    </div>
+
+    <div class="panel">
+      <h2>Subject</h2>
+      <div class="seg" id="subjectMode">
+        <button data-v="auto" class="on">Auto</button><button data-v="box">Box</button><button data-v="none">Whole photo</button>
+      </div>
+      <div class="hint" id="subjectHint">Finds the main subject; the background becomes one flat value and the tones are set from the subject.</div>
+      <div style="margin-top:12px;font-size:13px">Background</div>
+      <div class="seg" id="bgMode">
+        <button data-v="auto" class="on">Auto</button><button data-v="dark">Dark</button><button data-v="light">Light</button>
+      </div>
     </div>
 
     <div class="panel">
       <h2>Shaping</h2>
-      <label class="row"><div class="top">Facet size <b id="vFacet">5</b></div>
-        <input id="facet" type="range" min="0.5" max="12" step="0.5" value="5">
-        <div class="hint">Low: shapes follow the photo closely. High: straight-edged, angular blocks.</div></label>
-      <label class="row"><div class="top">Ignore specks <b id="vSpeck">10</b></div>
-        <input id="speck" type="range" min="0" max="30" value="10">
-        <div class="hint">Drops islands and holes smaller than this.</div></label>
-      <label class="row"><div class="top">Smooth detail <b id="vBlur">2</b></div>
-        <input id="blur" type="range" min="0" max="10" value="2">
-        <div class="hint">Light blur before splitting, to calm noise and texture.</div></label>
-      <label class="row"><div class="top">Natural splits ↔ even areas <b id="vBal">25</b></div>
-        <input id="bal" type="range" min="0" max="100" value="25">
-        <div class="hint">Left: cuts fall where the photo's tones naturally cluster. Right: each tone covers about the same area.</div></label>
+      <label class="row"><div class="top">Simplify <b id="vSimp">1.0×</b></div>
+        <input id="simp" type="range" min="-1" max="1" step="0.05" value="0">
+        <div class="hint">Right: bigger, fewer, straighter shapes. Left: more of them.</div></label>
       <label class="row"><div class="top">Lighter ↔ darker <b id="vShift">0</b></div>
-        <input id="shift" type="range" min="-60" max="60" value="0"></label>
+        <input id="shift" type="range" min="-20" max="20" value="0">
+        <div class="hint">Moves where light turns to shadow.</div></label>
     </div>
 
     <div class="panel">
@@ -117,40 +129,76 @@
       <h2>Print &amp; save</h2>
       <select id="printMode">
         <option value="sheet">One sheet: all steps together</option>
-        <option value="pages">One step per page, all steps</option>
+        <option value="pages">One step per page</option>
         <option value="single">Just the step I'm viewing</option>
       </select>
       <div class="btnrow" style="margin-top:8px">
         <button id="print" class="primary" type="button">Print</button>
         <button id="save" type="button">Save PNG</button>
       </div>
-      <label class="check"><input id="printOrig" type="checkbox" checked> Include original photo</label>
+      <label class="check"><input id="printOrig" type="checkbox" checked> Include the photo</label>
     </div>
   </aside>
 
   <section>
+    <div class="status" id="status" style="margin:0 0 8px"></div>
     <div class="tabs" id="tabs"></div>
     <div class="stage empty" id="stage">Drop a photo here, or tap to choose one.</div>
   </section>
 </main>
 <div id="printArea"></div>
 
+<script src="engine.js"></script>
+<script src="subject.js"></script>
 <script>
 (() => {
-  const WORK = 640;   // analysis resolution (long edge)
-  const OUT = 1600;   // output resolution (long edge); shapes are vector so they stay crisp
+  const E = window.BlocksEngine, SUBJ = window.BlocksSubject;
+  const WORK = E.DEFAULTS.work, OUT = 1600;
   const $ = id => document.getElementById(id);
-  const stepsAll = [2, 3, 4, 5];
-  const state = { src: null, crop: null, w: 0, h: 0, S: 1, gray: null, orig: null, view: 'all', tones: {} };
+  const STEPS = [
+    { id: 1, tones: 2, level: 'coarse', name: '1 · Big shapes', sub: '2 tones' },
+    { id: 2, tones: 3, level: 'coarse', name: '2 · Three values', sub: '3 tones' },
+    { id: 3, tones: 3, level: 'detail', name: '3 · Detail', sub: '3 tones' },
+    { id: 4, tones: 5, level: 'fine', name: '4 · Fine', sub: '5 tones' },
+  ];
+  const state = {
+    src: null, w: 0, h: 0, px: null, orig: null, an: null,
+    mask: null, maskFor: null, box: null, subject: 'auto', bg: 'auto',
+    view: 'all', tones: {}, token: 0,
+  };
   const cache = {};
 
   /* ---------- tabs ---------- */
   const tabsEl = $('tabs');
-  [['orig', 'Original'], ...stepsAll.map(n => [n, n + ' tones']), ['all', 'All steps']].forEach(([k, label]) => {
-    const b = document.createElement('button'); b.textContent = label; b.dataset.k = k;
-    b.onclick = () => { state.view = k; show(); };
-    tabsEl.appendChild(b);
+  [{ k: 'photo', name: 'Photo', sub: 'reference' }, ...STEPS.map(s => ({ k: s.id, name: s.name, sub: s.sub })), { k: 'all', name: 'All steps', sub: 'side by side' }]
+    .forEach(t => {
+      const b = document.createElement('button'); b.dataset.k = t.k;
+      b.innerHTML = `${t.name}<small>${t.sub}</small>`;
+      b.onclick = () => { state.view = t.k; show(); };
+      tabsEl.appendChild(b);
+    });
+
+  /* ---------- segmented controls ---------- */
+  function seg(id, onPick) {
+    const el = $(id);
+    el.onclick = e => { const b = e.target.closest('button'); if (!b) return; set(b.dataset.v); onPick(b.dataset.v); };
+    const set = v => el.querySelectorAll('button').forEach(b => b.classList.toggle('on', b.dataset.v === v));
+    return set;
+  }
+  const HINTS = {
+    auto: 'Finds the main subject; the background becomes one flat value and the tones are set from the subject.',
+    box: 'On the Photo tab, drag a box around your focal point. Detail goes there; the rest stays as big shapes.',
+    none: 'Treats the whole photo as the subject.',
+  };
+  const setSubject = seg('subjectMode', v => {
+    state.subject = v; $('subjectHint').textContent = HINTS[v];
+    if (v === 'box' && !state.box) { state.view = 'photo'; }
+    if (v !== 'none') ensureMask();
+    rebuild();
   });
+  const setBg = seg('bgMode', v => { state.bg = v; recompute(); });
+
+  const status = (msg, busy) => { const s = $('status'); s.textContent = msg || ''; s.classList.toggle('busy', !!busy); };
 
   /* ---------- loading ---------- */
   function loadFile(f) {
@@ -168,15 +216,14 @@
   addEventListener('paste', e => { for (const it of e.clipboardData.items) if (it.type.startsWith('image/')) { loadFile(it.getAsFile()); break; } });
 
   $('sample').onclick = () => {
-    const c = document.createElement('canvas'); c.width = c.height = 800;
+    const c = document.createElement('canvas'); c.width = 800; c.height = 800;
     const g = c.getContext('2d');
-    const bg = g.createRadialGradient(400, 300, 50, 400, 400, 600);
-    bg.addColorStop(0, '#9a9a9a'); bg.addColorStop(1, '#151515');
+    const bg = g.createLinearGradient(0, 0, 800, 800); bg.addColorStop(0, '#8a8a8a'); bg.addColorStop(1, '#3a3a3a');
     g.fillStyle = bg; g.fillRect(0, 0, 800, 800);
-    g.fillStyle = '#2b2b2b'; g.beginPath(); g.ellipse(430, 640, 250, 40, 0, 0, 7); g.fill();
-    const s = g.createRadialGradient(330, 300, 20, 400, 400, 260);
-    s.addColorStop(0, '#fff'); s.addColorStop(.45, '#a8a8a8'); s.addColorStop(.8, '#3a3a3a'); s.addColorStop(1, '#0c0c0c');
-    g.fillStyle = s; g.beginPath(); g.arc(400, 400, 240, 0, 7); g.fill();
+    g.fillStyle = '#222'; g.beginPath(); g.ellipse(470, 650, 260, 50, 0, 0, 7); g.fill();
+    const s = g.createRadialGradient(320, 300, 20, 400, 420, 260);
+    s.addColorStop(0, '#fff'); s.addColorStop(.45, '#b8b8b8'); s.addColorStop(.8, '#3a3a3a'); s.addColorStop(1, '#151515');
+    g.fillStyle = s; g.beginPath(); g.arc(400, 420, 230, 0, 7); g.fill();
     const im = new Image(); im.onload = () => setImage(im); im.src = c.toDataURL();
   };
 
@@ -186,185 +233,90 @@
     c.width = Math.max(1, Math.round(im.naturalWidth * k)); c.height = Math.max(1, Math.round(im.naturalHeight * k));
     const g = c.getContext('2d'); g.fillStyle = '#fff'; g.fillRect(0, 0, c.width, c.height);
     g.drawImage(im, 0, 0, c.width, c.height);
-    state.src = c; state.crop = null; state.tones = {};
+    const kw = Math.min(1, WORK / Math.max(c.width, c.height));
+    const w = Math.max(2, Math.round(c.width * kw)), h = Math.max(2, Math.round(c.height * kw));
+    const wc = document.createElement('canvas'); wc.width = w; wc.height = h;
+    const wg = wc.getContext('2d', { willReadFrequently: true }); wg.drawImage(c, 0, 0, w, h);
+    const S = OUT / Math.max(w, h), oc = document.createElement('canvas');
+    oc.width = Math.round(w * S); oc.height = Math.round(h * S);
+    oc.getContext('2d').drawImage(c, 0, 0, oc.width, oc.height);
+    Object.assign(state, { src: c, w, h, px: wg.getImageData(0, 0, w, h).data, orig: oc, mask: null, maskFor: null, box: null, tones: {} });
     $('stage').classList.remove('empty');
-    prepare();
+    if (state.subject === 'box') { state.subject = 'auto'; setSubject('auto'); $('subjectHint').textContent = HINTS.auto; }
+    rebuild();
+    if (state.subject !== 'none') ensureMask();
   }
 
-  // Cut the (cropped) source down to the working grayscale and the full-size original.
-  function prepare() {
-    const s = state.src, cr = state.crop || { x: 0, y: 0, w: s.width, h: s.height };
-    const k = Math.min(1, WORK / Math.max(cr.w, cr.h));
-    const w = Math.max(2, Math.round(cr.w * k)), h = Math.max(2, Math.round(cr.h * k));
-    const wc = document.createElement('canvas'); wc.width = w; wc.height = h;
-    const wg = wc.getContext('2d', { willReadFrequently: true });
-    wg.drawImage(s, cr.x, cr.y, cr.w, cr.h, 0, 0, w, h);
-    const d = wg.getImageData(0, 0, w, h).data, gray = new Float32Array(w * h);
-    for (let i = 0, j = 0; i < gray.length; i++, j += 4) gray[i] = 0.2126 * d[j] + 0.7152 * d[j + 1] + 0.0722 * d[j + 2];
-    const S = OUT / Math.max(w, h);
-    const oc = document.createElement('canvas'); oc.width = Math.round(w * S); oc.height = Math.round(h * S);
-    oc.getContext('2d').drawImage(s, cr.x, cr.y, cr.w, cr.h, 0, 0, oc.width, oc.height);
-    Object.assign(state, { w, h, S, gray, orig: oc });
-    $('resetCrop').style.display = state.crop ? '' : 'none';
+  // Run the subject model once per photo (in the background); rebuild when it lands.
+  function ensureMask() {
+    if (!state.src || state.mask || state.maskFor === state.src) return;
+    const src = state.src, w = state.w, h = state.h;
+    state.maskFor = src;
+    status('Finding the subject… (first time downloads ~44 MB, then it is cached)', true);
+    SUBJ.find(src, w, h).then(m => {
+      if (state.src !== src) return;
+      state.mask = m; status('');
+      if (state.subject !== 'none') rebuild();
+    }).catch(err => {
+      if (state.src !== src) return;
+      console.warn(err);
+      status('Could not run the subject finder here — using a simple focus guess instead. Drag a box to help.');
+    });
+  }
+
+  /* ---------- engine ---------- */
+  function boxMask() {
+    const { w, h, box } = state, m = new Uint8Array(w * h);
+    const x0 = Math.round(box.x0 * w), x1 = Math.round(box.x1 * w), y0 = Math.round(box.y0 * h), y1 = Math.round(box.y1 * h);
+    for (let y = y0; y < y1; y++) for (let x = x0; x < x1; x++) m[y * w + x] = 1;
+    return m;
+  }
+  function rebuild() {
+    if (!state.src) return;
+    const opts = {};
+    if (state.subject === 'auto' && state.mask) opts.subject = state.mask;
+    if (state.subject === 'box' && state.box) {
+      // the box is where detail goes (like an artist's focal area), not a crop:
+      // the whole subject stays, with fine shapes inside the box and big shapes outside
+      if (state.mask) opts.subject = state.mask;
+      opts.focus = boxMask();
+    }
+    state.an = E.analyze(state.px, state.w, state.h, opts);
     recompute();
   }
-  $('resetCrop').onclick = () => { state.crop = null; prepare(); };
-
-  /* ---------- tone splitting ---------- */
-  function boxBlur(src, w, h, r) {
-    const tmp = new Float32Array(src.length), out = new Float32Array(src.length), win = 2 * r + 1;
-    for (let y = 0; y < h; y++) {
-      const row = y * w; let sum = 0;
-      for (let x = -r; x <= r; x++) sum += src[row + Math.min(w - 1, Math.max(0, x))];
-      for (let x = 0; x < w; x++) { tmp[row + x] = sum / win; sum += src[row + Math.min(w - 1, x + r + 1)] - src[row + Math.max(0, x - r)]; }
-    }
-    for (let x = 0; x < w; x++) {
-      let sum = 0;
-      for (let y = -r; y <= r; y++) sum += tmp[Math.min(h - 1, Math.max(0, y)) * w + x];
-      for (let y = 0; y < h; y++) { out[y * w + x] = sum / win; sum += tmp[Math.min(h - 1, y + r + 1) * w + x] - tmp[Math.max(0, y - r) * w + x]; }
-    }
-    return out;
+  function recompute() { for (const k in cache) delete cache[k]; show(); }
+  const simplify = () => Math.pow(2, +$('simp').value);
+  function toneCols(step) {
+    if (state.tones[step.id]) return state.tones[step.id];
+    return Array.from({ length: step.tones }, (_, i) => { const v = Math.round(255 * i / (step.tones - 1)).toString(16).padStart(2, '0'); return '#' + v + v + v; });
   }
-
-  // Multi-level Otsu: the n-1 cuts that best separate the histogram into n clusters.
-  function otsuCuts(hist, total, n) {
-    const P = new Float64Array(257), M = new Float64Array(257);
-    for (let i = 0; i < 256; i++) { P[i + 1] = P[i] + hist[i] / total; M[i + 1] = M[i] + i * hist[i] / total; }
-    const cost = (a, b) => { const p = P[b] - P[a]; if (p <= 1e-12) return 0; const m = M[b] - M[a]; return m * m / p; };
-    const best = [], arg = [];
-    for (let k = 1; k <= n; k++) { best.push(new Float64Array(257).fill(-1e9)); arg.push(new Int16Array(257)); }
-    for (let i = 1; i <= 256; i++) best[0][i] = cost(0, i);
-    for (let k = 1; k < n; k++)
-      for (let i = k + 1; i <= 256; i++) {
-        let bv = -1e9, bj = k;
-        for (let j = k; j < i; j++) { const v = best[k - 1][j] + cost(j, i); if (v > bv) { bv = v; bj = j; } }
-        best[k][i] = bv; arg[k][i] = bj;
-      }
-    const cuts = []; let i = 256;
-    for (let k = n - 1; k >= 1; k--) { i = arg[k][i]; cuts.unshift(i); }
-    return cuts; // each cut c means "gray >= c starts the next tone"
+  function render(step) {
+    const res = E.step(state.an, step.tones, step.level, { shift: +$('shift').value, simplify: simplify(), background: state.bg });
+    const S = OUT / Math.max(state.w, state.h), c = document.createElement('canvas');
+    c.width = Math.round(state.w * S); c.height = Math.round(state.h * S);
+    E.draw(c.getContext('2d'), res, {
+      scale: S, palette: toneCols(step), outline: $('outline').checked,
+      lineColor: $('lineColor').value, lineWidth: +$('line').value * 2.2,
+    });
+    return c;
   }
+  const getStep = id => cache[id] || (cache[id] = render(STEPS.find(s => s.id === id)));
 
-  function thresholds(g, n) {
-    const hist = new Float64Array(256);
-    for (let i = 0; i < g.length; i++) hist[Math.max(0, Math.min(255, g[i] | 0))]++;
-    const otsu = otsuCuts(hist, g.length, n);
-    const quant = p => { let acc = 0; const t = p * g.length; for (let v = 0; v < 256; v++) { acc += hist[v]; if (acc >= t) return v + 1; } return 255; };
-    const b = +$('bal').value / 100, shift = +$('shift').value, t = [];
-    for (let k = 1; k < n; k++) {
-      let v = otsu[k - 1] * (1 - b) + quant(k / n) * b + shift;
-      if (t.length && v <= t[t.length - 1]) v = t[t.length - 1] + 1;
-      t.push(v);
-    }
-    return t;
-  }
-
-  /* ---------- vectorise: mask -> simplified polygons ---------- */
-  // Walk the pixel edges around every "inside" region, keeping the inside on the right.
-  function trace(mask, w, h) {
-    const W1 = w + 1, out = new Uint8Array(W1 * (h + 1));
-    for (let y = 0; y < h; y++) for (let x = 0; x < w; x++) {
-      if (!mask[y * w + x]) continue;
-      if (y === 0 || !mask[(y - 1) * w + x]) out[y * W1 + x] |= 1;
-      if (x === w - 1 || !mask[y * w + x + 1]) out[y * W1 + x + 1] |= 2;
-      if (y === h - 1 || !mask[(y + 1) * w + x]) out[(y + 1) * W1 + x + 1] |= 4;
-      if (x === 0 || !mask[y * w + x - 1]) out[(y + 1) * W1 + x] |= 8;
-    }
-    const DX = [1, 0, -1, 0], DY = [0, 1, 0, -1], DV = [1, W1, -1, -W1], loops = [];
-    for (let v0 = 0; v0 < out.length; v0++) {
-      while (out[v0]) {
-        let d = out[v0] & 1 ? 0 : out[v0] & 2 ? 1 : out[v0] & 4 ? 2 : 3;
-        const pts = []; let v = v0, pd = -1;
-        for (;;) {
-          out[v] &= ~(1 << d);
-          if (d !== pd) pts.push(v % W1, (v / W1) | 0);
-          pd = d; v += DV[d];
-          const o = out[v];
-          if (v === v0 || !o) break;
-          const r = (d + 1) & 3, l = (d + 3) & 3;
-          d = o & (1 << r) ? r : o & (1 << d) ? d : o & (1 << l) ? l : -1;
-          if (d < 0) break;
-        }
-        if (pts.length >= 6) loops.push(pts);
-      }
-    }
-    return loops;
-  }
-
-  function area(p) { let a = 0; for (let i = 0, n = p.length; i < n; i += 2) { const j = (i + 2) % n; a += p[i] * p[j + 1] - p[j] * p[i + 1]; } return Math.abs(a) / 2; }
-
-  function rdp(p, i0, i1, eps, keep) { // iterative Douglas-Peucker on an open chain of point indices
-    const st = [[i0, i1]];
-    while (st.length) {
-      const [a, b] = st.pop(); let md = 0, mi = -1;
-      const ax = p[a * 2], ay = p[a * 2 + 1], bx = p[(b % (p.length / 2)) * 2], by = p[(b % (p.length / 2)) * 2 + 1];
-      const dx = bx - ax, dy = by - ay, L = Math.hypot(dx, dy) || 1e-9;
-      for (let i = a + 1; i < b; i++) {
-        const d = Math.abs(dy * p[i * 2] - dx * p[i * 2 + 1] + bx * ay - by * ax) / L;
-        if (d > md) { md = d; mi = i; }
-      }
-      if (md > eps) { keep[mi] = 1; st.push([a, mi], [mi, b]); }
-    }
-  }
-  function simplify(p, eps) {
-    const n = p.length / 2; if (n <= 4 || eps <= 0.01) return p;
-    let f = 0, fd = -1;
-    for (let i = 1; i < n; i++) { const d = Math.hypot(p[i * 2] - p[0], p[i * 2 + 1] - p[1]); if (d > fd) { fd = d; f = i; } }
-    const keep = new Uint8Array(n); keep[0] = 1; keep[f] = 1;
-    rdp(p, 0, f, eps, keep); rdp(p, f, n, eps, keep);
-    const o = []; for (let i = 0; i < n; i++) if (keep[i]) o.push(p[i * 2], p[i * 2 + 1]);
-    return o.length >= 6 ? o : null;
-  }
-
-  /* ---------- render one step ---------- */
-  function toneHex(n) {
-    if (state.tones[n]) return state.tones[n];
-    return Array.from({ length: n }, (_, i) => { const v = Math.round(255 * i / (n - 1)).toString(16).padStart(2, '0'); return '#' + v + v + v; });
-  }
-  let blurCache = { key: '', data: null };
-  function blurred() {
-    const r = +$('blur').value, key = r + '|' + state.gray.length + '|' + state.w;
-    if (blurCache.key !== key || blurCache.src !== state.gray) {
-      let g = state.gray;
-      if (r > 0) { g = boxBlur(g, state.w, state.h, r); g = boxBlur(g, state.w, state.h, r); }
-      blurCache = { key, data: g, src: state.gray };
-    }
-    return blurCache.data;
-  }
-
-  function render(n) {
-    const { w, h, S } = state, g = blurred(), t = thresholds(g, n);
-    const eps = +$('facet').value, sp = +$('speck').value, minArea = sp * sp;
-    const levels = [];
-    for (let k = 0; k < t.length; k++) {
-      const mask = new Uint8Array(w * h);
-      for (let i = 0; i < mask.length; i++) mask[i] = g[i] >= t[k] ? 1 : 0;
-      const polys = [];
-      for (const lp of trace(mask, w, h)) {
-        if (area(lp) < minArea) continue;
-        const s = simplify(lp, eps); if (s) polys.push(s);
-      }
-      levels.push(polys);
-    }
-    const c = document.createElement('canvas'); c.width = Math.round(w * S); c.height = Math.round(h * S);
-    const ctx = c.getContext('2d'), cols = toneHex(n);
-    ctx.fillStyle = cols[0]; ctx.fillRect(0, 0, c.width, c.height);
-    ctx.scale(S, S); ctx.lineJoin = 'round';
-    const pathFor = polys => { const p = new Path2D(); for (const q of polys) { p.moveTo(q[0], q[1]); for (let i = 2; i < q.length; i += 2) p.lineTo(q[i], q[i + 1]); p.closePath(); } return p; };
-    const paths = levels.map(pathFor);
-    levels.forEach((_, k) => { ctx.fillStyle = cols[k + 1]; ctx.fill(paths[k], 'evenodd'); });
-    if ($('outline').checked) {
-      ctx.strokeStyle = $('lineColor').value; ctx.lineWidth = +$('line').value * 2.6 / S;
-      paths.forEach(p => ctx.stroke(p));
+  /* ---------- views ---------- */
+  const copyCanvas = src => { const c = document.createElement('canvas'); c.width = src.width; c.height = src.height; c.getContext('2d').drawImage(src, 0, 0); return c; };
+  function photoView() {
+    const c = copyCanvas(state.orig), g = c.getContext('2d');
+    const m = state.subject === 'auto' ? state.mask : state.subject === 'box' && state.box ? boxMask() : null;
+    if (m) {
+      // dim what isn't the subject so you can see what the engine is working from
+      const mc = document.createElement('canvas'); mc.width = state.w; mc.height = state.h;
+      const mg = mc.getContext('2d'), md = mg.createImageData(state.w, state.h);
+      for (let i = 0; i < m.length; i++) md.data[i * 4 + 3] = m[i] > 127 || m[i] === 1 ? 0 : 150;
+      mg.putImageData(md, 0, 0);
+      g.imageSmoothingEnabled = true; g.drawImage(mc, 0, 0, c.width, c.height);
     }
     return c;
   }
-
-  /* ---------- UI ---------- */
-  function recompute() { for (const k in cache) delete cache[k]; show(); }
-  const getStep = n => cache[n] || (cache[n] = render(n));
-  const copyCanvas = src => { const c = document.createElement('canvas'); c.width = src.width; c.height = src.height; c.getContext('2d').drawImage(src, 0, 0); return c; };
-
   function show() {
     tabsEl.querySelectorAll('button').forEach(b => b.classList.toggle('on', b.dataset.k == state.view));
     renderSwatches();
@@ -373,24 +325,29 @@
     const v = state.view;
     if (v === 'all') {
       const grid = document.createElement('div'); grid.className = 'grid';
-      grid.appendChild(figure(state.orig, 'Original'));
-      stepsAll.forEach(n => grid.appendChild(figure(getStep(n), n + ' tones', n)));
+      grid.appendChild(figure(state.orig, 'Photo', 'photo'));
+      STEPS.forEach(s => grid.appendChild(figure(getStep(s.id), `${s.name} — ${s.sub}`, s.id)));
       stage.appendChild(grid);
     } else {
       stage.classList.add('single');
       const wrap = document.createElement('div'); wrap.className = 'wrap';
-      const cv = copyCanvas(v === 'orig' ? state.orig : getStep(v)); wrap.appendChild(cv); stage.appendChild(wrap);
-      if (v === 'orig') { enableCrop(cv, wrap); const nt = document.createElement('div'); nt.className = 'note'; nt.textContent = 'Drag on the photo to crop.'; stage.appendChild(nt); }
+      const cv = v === 'photo' ? photoView() : copyCanvas(getStep(v));
+      wrap.appendChild(cv); stage.appendChild(wrap);
+      if (v === 'photo') {
+        enableBox(cv, wrap);
+        const nt = document.createElement('div'); nt.className = 'note';
+        nt.textContent = 'Drag a box around your focal point (a face, an eye) to put the detail there.';
+        stage.appendChild(nt);
+      }
     }
   }
-  function figure(src, cap, n) {
+  function figure(src, cap, k) {
     const f = document.createElement('figure'); f.appendChild(copyCanvas(src));
     const fc = document.createElement('figcaption'); fc.textContent = cap; f.appendChild(fc);
-    if (n) { f.style.cursor = 'pointer'; f.onclick = () => { state.view = n; show(); }; }
+    f.onclick = () => { state.view = k; show(); };
     return f;
   }
-
-  function enableCrop(cv, wrap) {
+  function enableBox(cv, wrap) {
     const band = document.createElement('div'); band.className = 'band'; band.style.display = 'none'; wrap.appendChild(band);
     let s = null;
     const pos = e => { const r = cv.getBoundingClientRect(); return [Math.min(Math.max(e.clientX - r.left, 0), r.width), Math.min(Math.max(e.clientY - r.top, 0), r.height), r]; };
@@ -400,22 +357,23 @@
       Object.assign(band.style, { left: Math.min(s[0], x) + 'px', top: Math.min(s[1], y) + 'px', width: Math.abs(x - s[0]) + 'px', height: Math.abs(y - s[1]) + 'px' });
     };
     cv.onpointerup = e => {
-      if (!s) return; const [x, y, r] = pos(e), x0 = Math.min(s[0], x), y0 = Math.min(s[1], y), bw = Math.abs(x - s[0]), bh = Math.abs(y - s[1]);
+      if (!s) return; const [x, y, r] = pos(e), bw = Math.abs(x - s[0]), bh = Math.abs(y - s[1]);
+      const x0 = Math.min(s[0], x) / r.width, y0 = Math.min(s[1], y) / r.height;
       s = null; band.style.display = 'none';
-      if (bw < 24 || bh < 24) return;
-      const cur = state.crop || { x: 0, y: 0, w: state.src.width, h: state.src.height };
-      state.crop = { x: cur.x + x0 / r.width * cur.w, y: cur.y + y0 / r.height * cur.h, w: bw / r.width * cur.w, h: bh / r.height * cur.h };
-      prepare();
+      if (bw < 20 || bh < 20) return;
+      state.box = { x0, y0, x1: x0 + bw / r.width, y1: y0 + bh / r.height };
+      state.subject = 'box'; setSubject('box'); $('subjectHint').textContent = HINTS.box;
+      ensureMask();
+      rebuild();
     };
   }
-
   function renderSwatches() {
     const box = $('swatches'); box.innerHTML = '';
-    const n = typeof state.view === 'number' ? state.view : null;
-    if (!n) { box.innerHTML = '<span class="hint">Pick a single step above to recolour its tones.</span>'; return; }
-    toneHex(n).forEach((hex, i) => {
+    const step = STEPS.find(s => s.id === state.view);
+    if (!step) { box.innerHTML = '<span class="hint">Pick a step above to recolour its tones.</span>'; return; }
+    toneCols(step).forEach((hex, i) => {
       const inp = document.createElement('input'); inp.type = 'color'; inp.value = hex;
-      inp.onchange = () => { const a = toneHex(n).slice(); a[i] = inp.value; state.tones[n] = a; delete cache[n]; show(); };
+      inp.onchange = () => { const a = toneCols(step).slice(); a[i] = inp.value; state.tones[step.id] = a; delete cache[step.id]; show(); };
       box.appendChild(inp);
     });
   }
@@ -423,8 +381,9 @@
 
   let pending = 0;
   const schedule = () => { if (!pending) pending = requestAnimationFrame(() => { pending = 0; if (state.src) recompute(); }); };
-  [['facet', 'vFacet'], ['speck', 'vSpeck'], ['blur', 'vBlur'], ['bal', 'vBal'], ['shift', 'vShift'], ['line', 'vLine']]
-    .forEach(([id, out]) => $(id).addEventListener('input', () => { $(out).textContent = $(id).value; schedule(); }));
+  $('simp').addEventListener('input', () => { $('vSimp').textContent = simplify().toFixed(1) + '×'; schedule(); });
+  $('shift').addEventListener('input', () => { $('vShift').textContent = $('shift').value; schedule(); });
+  $('line').addEventListener('input', () => { $('vLine').textContent = $('line').value; schedule(); });
   $('outline').onchange = schedule; $('lineColor').oninput = schedule;
 
   /* ---------- print & save ---------- */
@@ -436,18 +395,22 @@
       const fc = document.createElement('figcaption'); fc.textContent = cap; f.appendChild(im); f.appendChild(fc); pa.appendChild(f);
     };
     if (mode === 'single') {
-      const v = state.view; add(v === 'orig' ? state.orig : getStep(v === 'all' ? 5 : v), v === 'orig' ? 'Original' : (v === 'all' ? 5 : v) + ' tones');
+      const st = STEPS.find(s => s.id === state.view);
+      if (st) add(getStep(st.id), `${st.name} — ${st.sub}`); else if (state.view === 'photo') add(state.orig, 'Photo'); else add(getStep(4), '4 · Fine — 5 tones');
     } else {
-      if ($('printOrig').checked) add(state.orig, 'Original');
-      stepsAll.forEach(n => add(getStep(n), n + ' tones'));
+      if ($('printOrig').checked) add(state.orig, 'Photo');
+      STEPS.forEach(s => add(getStep(s.id), `${s.name} — ${s.sub}`));
     }
     Promise.all([...pa.querySelectorAll('img')].map(i => i.decode ? i.decode().catch(() => {}) : 0)).then(() => setTimeout(() => window.print(), 50));
   };
   $('save').onclick = () => {
     if (!state.src) return alert('Choose a photo first.');
-    const v = state.view, n = typeof v === 'number' ? v : 5, src = v === 'orig' ? state.orig : getStep(n);
-    src.toBlob(b => { const a = document.createElement('a'); a.href = URL.createObjectURL(b); a.download = v === 'orig' ? 'original.png' : 'blocks-' + n + '-tones.png'; a.click(); setTimeout(() => URL.revokeObjectURL(a.href), 1000); });
+    const st = STEPS.find(s => s.id === state.view) || STEPS[3];
+    const src = state.view === 'photo' ? state.orig : getStep(st.id);
+    src.toBlob(b => { const a = document.createElement('a'); a.href = URL.createObjectURL(b); a.download = state.view === 'photo' ? 'photo.png' : `blocks-step-${st.id}.png`; a.click(); setTimeout(() => URL.revokeObjectURL(a.href), 1000); });
   };
+
+  show();
 })();
 </script>
 </body>

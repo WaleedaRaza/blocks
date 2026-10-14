@@ -410,6 +410,7 @@
     kCoarse: 6, kDetail: 1.2, kFine: 0.4 };
 
   // opts.subject: optional Float32Array/Uint8Array (w*h, 0..1 or 0..255) from a subject cut-out.
+  // opts.focus: optional Uint8Array (w*h, 0/1) — where detail goes when there is no subject.
   function analyze(rgba, w0, h0, opts) {
     const o = Object.assign({}, DEFAULTS, opts || {});
     const w = w0, h = h0, n = w * h;   // caller supplies pixels already at working size
@@ -433,15 +434,17 @@
       pside = new Uint8Array(seg.R); for (let k = 0; k < seg.R; k++) pside[k] = t[k] / c[k] >= 0.5 ? 1 : 0;
     }
     const merges = hierarchy(seg.lab, seg.R, L, A, B, w, h, 0.25, pside);
-    const focus = side || focusMap(L, A, B, w, h, o.focusShare);
+    const focus = side || (o.focus && o.focus.some(v => v) ? o.focus : focusMap(L, A, B, w, h, o.focusShare));
     // ordinal of each subject-side merge, so "allow the subject N shapes" is a simple test
     const sOrd = new Int32Array(merges.length); let sTotal = 0, ns = 0;
     if (pside) { for (let k = 0; k < seg.R; k++) ns += pside[k]; for (let i = 0; i < merges.length; i++) sOrd[i] = merges[i][5] ? sTotal++ : -1; }
-    const an = { w, h, L, seg, merges, focus, side, pside, sOrd, ns, opts: o };
+    // with a subject, an optional focus box narrows where the detail goes inside it
+    const zone = side && o.focus && o.focus.some(v => v) ? o.focus : null;
+    const an = { w, h, L, seg, merges, focus, side, zone, pside, sOrd, ns, opts: o };
     // tone cuts from the subject's medium-sized shapes (background ignored when we know it)
     const med = regionsAt(an, 'medium');
     const acc = new Map();
-    for (let i = 0; i < n; i++) { let a = acc.get(med[i]); if (!a) acc.set(med[i], a = [0, 0, 0]); a[0]++; a[1] += L[i]; a[2] += focus[i]; }
+    for (let i = 0; i < n; i++) { let a = acc.get(med[i]); if (!a) acc.set(med[i], a = [0, 0, 0]); a[0]++; a[1] += L[i]; a[2] += zone ? focus[i] * (0.25 + zone[i]) : focus[i]; }
     const vals = [], wts = [];
     for (const [, a] of acc) { vals.push(a[1] / a[0]); wts.push(a[0] * ((side ? 0.0 : 0.03) + a[2] / a[0])); }
     an.cuts = nestedCuts(vals, wts, 5);
@@ -483,9 +486,12 @@
   }
 
   // level: 'coarse' (big shapes) | 'detail' (more shapes in the subject) | 'fine'
+  // extra: { shift: L* units (+ = darker), simplify: 0.5..2 (bigger, fewer shapes),
+  //          background: 'auto' | 'dark' | 'light' }
   function step(an, tones, level, extra) {
     const { w, h, L, focus } = an, n = w * h;
-    const shift = (extra && extra.shift) || 0;
+    const shift = (extra && extra.shift) || 0, simp = (extra && extra.simplify) || 1;
+    const bgMode = (extra && extra.background) || 'auto';
     const cuts = an.cuts[tones].map(c => c + shift);
     // Decide light/dark on medium shapes first (squint), then let each step drop the
     // shapes too small to matter at that step. Merging first would average a face into
@@ -499,17 +505,21 @@
     for (let i = 0; i < n; i++) cls[i] = clsOf.get(regs[i]);
     if (an.side) {
       // background stays one flat value across every step (chosen in analyze)
-      const bg = an.bgLight ? tones - 1 : 0;
+      const bg = (bgMode === 'auto' ? an.bgLight : bgMode === 'light') ? tones - 1 : 0;
       for (let i = 0; i < n; i++) if (!an.side[i]) cls[i] = bg;
     }
     let area = n; if (an.side) { area = 0; for (let i = 0; i < n; i++) area += an.side[i]; }
     const frac = { coarse: 0.008, detail: 0.0015, fine: 0.0006 }[level] || 0.0015;
-    const minA = area * frac, bgMin = n * 0.008;
-    absorb(cls, w, h, level === 'coarse' ? () => minA : (x, y) => (focus[((y + 0.5) | 0) * w + ((x + 0.5) | 0)] ? minA : bgMin), 3);
+    const minA = area * frac * simp, bgMin = n * 0.008 * simp;
+    const at = (m, x, y) => m[((y + 0.5) | 0) * w + ((x + 0.5) | 0)];
+    const bigA = area * 0.008 * simp;
+    absorb(cls, w, h, level === 'coarse' ? () => minA
+      : an.zone ? (x, y) => (!at(focus, x, y) ? bgMin : at(an.zone, x, y) ? minA : bigA)
+      : (x, y) => (at(focus, x, y) ? minA : bgMin), 3);
     const { comp, C } = components(cls, w, h);
     const compCls = new Int32Array(C);
     for (let i = 0; i < n; i++) compCls[comp[i]] = cls[i];
-    const eps = (extra && extra.eps) || (level === 'coarse' ? 0.009 : level === 'detail' ? 0.005 : 0.004) * Math.hypot(w, h);
+    const eps = (extra && extra.eps) || (level === 'coarse' ? 0.009 : level === 'detail' ? 0.005 : 0.004) * Math.hypot(w, h) * Math.sqrt(simp);
     const vec = vectorise(comp, w, h, eps);
     // family of each tone in the 2-tone split, for outline weight
     const t1 = an.cuts[2][0] + shift;

@@ -17,7 +17,7 @@ const dataUrl = p => 'data:image/' + (/\.png$/i.test(p) ? 'png' : 'jpeg') + ';ba
   const page = await browser.newPage({ viewport: { width: 3000, height: 900 } });
   const errors = []; page.on('pageerror', e => errors.push(e.message));
 
-  // 1. current app's 3-tone output, for comparison
+  // 1. what the app (index.html) shows at step 2, without a subject mask, for comparison
   const old = {};
   for (const f of files) {
     await page.goto(url(path.join(root, 'index.html')));

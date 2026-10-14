@@ -45,7 +45,7 @@ async function run() {
     const fd = fg.getImageData(0, 0, w, h);
     for (let i = 0; i < w * h; i++) if (!an.focus[i]) { fd.data[i * 4] *= 0.25; fd.data[i * 4 + 1] *= 0.25; fd.data[i * 4 + 2] *= 0.25; }
     fg.putImageData(fd, 0, 0); add(fc, an.side ? 'Subject (cut-out model)' : 'Focus the engine guessed');
-    if (job.old) { const o = new Image(); o.src = job.old; add(o, 'Current app — 3 tones', 'old'); }
+    if (job.old) { const o = new Image(); o.src = job.old; add(o, 'App now, no subject — step 2', 'old'); }
     const S = 900 / Math.max(w, h);
     const steps = [[2, 'coarse', '1 · 2 tones, big shapes'], [3, 'coarse', '2 · 3 tones, big shapes'], [3, 'detail', '3 · 3 tones + detail'], [5, 'fine', '4 · 5 tones + fine detail']];
     let tSteps = 0;
